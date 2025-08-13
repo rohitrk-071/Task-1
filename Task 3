@@ -1,0 +1,102 @@
+Dashboard Development 
+# Install dependencies first:
+# pip install dash pandas plotly
+
+import pandas as pd
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
+import plotly.express as px
+
+# --------------------
+# 1. Load Data
+# --------------------
+# Use the sentiment results from your previous analysis
+df = pd.read_csv("sentiment_results.csv")  # Must have 'predicted_sentiment' column
+
+# --------------------
+# 2. Initialize App
+# --------------------
+app = dash.Dash(__name__)
+app.title = "Sentiment Analysis Dashboard"
+
+# --------------------
+# 3. App Layout
+# --------------------
+app.layout = html.Div([
+    html.H1("📊 Sentiment Analysis Dashboard", style={'textAlign': 'center'}),
+
+    # Dropdown filter
+    html.Div([
+        html.Label("Filter by Sentiment:"),
+        dcc.Dropdown(
+            id='sentiment-filter',
+            options=[{'label': s, 'value': s} for s in df['predicted_sentiment'].unique()] + [{'label': 'All', 'value': 'All'}],
+            value='All',
+            clearable=False
+        )
+    ], style={'width': '30%', 'margin': 'auto'}),
+
+    # KPI Cards
+    html.Div(id='kpi-cards', style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': 20}),
+
+    # Charts
+    html.Div([
+        dcc.Graph(id='sentiment-pie'),
+        dcc.Graph(id='sentiment-bar')
+    ])
+])
+
+# --------------------
+# 4. Callbacks
+# --------------------
+@app.callback(
+    [Output('sentiment-pie', 'figure'),
+     Output('sentiment-bar', 'figure'),
+     Output('kpi-cards', 'children')],
+    [Input('sentiment-filter', 'value')]
+)
+def update_dashboard(selected_sentiment):
+    if selected_sentiment == 'All':
+        filtered_df = df
+    else:
+        filtered_df = df[df['predicted_sentiment'] == selected_sentiment]
+
+    # Pie chart
+    pie_fig = px.pie(filtered_df, names='predicted_sentiment', title="Sentiment Distribution")
+
+    # Bar chart (Top 10 frequent words - optional if you have processed text)
+    bar_fig = px.histogram(filtered_df, x='predicted_sentiment', color='predicted_sentiment', title="Sentiment Counts")
+
+    # KPIs
+    total_count = len(filtered_df)
+    pos_count = len(filtered_df[filtered_df['predicted_sentiment'] == 'Positive'])
+    neg_count = len(filtered_df[filtered_df['predicted_sentiment'] == 'Negative'])
+    neu_count = len(filtered_df[filtered_df['predicted_sentiment'] == 'Neutral'])
+
+    kpis = [
+        html.Div([
+            html.H3("Total Records"),
+            html.H4(f"{total_count}")
+        ], style={'border': '1px solid gray', 'padding': '10px', 'width': '20%', 'textAlign': 'center'}),
+        html.Div([
+            html.H3("Positive"),
+            html.H4(f"{pos_count}")
+        ], style={'border': '1px solid green', 'padding': '10px', 'width': '20%', 'textAlign': 'center', 'color': 'green'}),
+        html.Div([
+            html.H3("Negative"),
+            html.H4(f"{neg_count}")
+        ], style={'border': '1px solid red', 'padding': '10px', 'width': '20%', 'textAlign': 'center', 'color': 'red'}),
+        html.Div([
+            html.H3("Neutral"),
+            html.H4(f"{neu_count}")
+        ], style={'border': '1px solid gray', 'padding': '10px', 'width': '20%', 'textAlign': 'center', 'color': 'gray'}),
+    ]
+
+    return pie_fig, bar_fig, kpis
+
+# --------------------
+# 5. Run App
+# --------------------
+if __name__ == '__main__':
+    app.run_server(debug=True)
