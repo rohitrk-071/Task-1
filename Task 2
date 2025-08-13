@@ -1,1 +1,86 @@
 Sentiment Analysis 
+# Install required packages first (only once):
+# pip install pandas matplotlib wordcloud nltk
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import re
+
+# Download VADER lexicon (only once)
+nltk.download('vader_lexicon')
+
+# --------------------
+# 1. Load Dataset
+# --------------------
+# Example: Twitter US Airline Sentiment dataset from Kaggle
+df = pd.read_csv("Tweets.csv")  # Replace with your dataset path
+print(df.head())
+
+# We'll use the 'text' column for sentiment analysis
+texts = df['text']
+
+# --------------------
+# 2. Clean Text Function
+# --------------------
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r"http\S+|www\S+|https\S+", '', text, flags=re.MULTILINE)
+    text = re.sub(r'\@\w+|\#','', text)
+    text = re.sub(r'[^A-Za-z\s]', '', text)
+    return text
+
+df['clean_text'] = texts.apply(clean_text)
+
+# --------------------
+# 3. Sentiment Analysis with VADER
+# --------------------
+sid = SentimentIntensityAnalyzer()
+
+def get_sentiment(text):
+    score = sid.polarity_scores(text)
+    if score['compound'] >= 0.05:
+        return 'Positive'
+    elif score['compound'] <= -0.05:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
+df['predicted_sentiment'] = df['clean_text'].apply(get_sentiment)
+
+# --------------------
+# 4. Visualization - Sentiment Count
+# --------------------
+plt.figure(figsize=(6,4))
+df['predicted_sentiment'].value_counts().plot(kind='bar', color=['green', 'red', 'gray'])
+plt.title("Sentiment Distribution")
+plt.xlabel("Sentiment")
+plt.ylabel("Count")
+plt.show()
+
+# --------------------
+# 5. Word Clouds
+# --------------------
+positive_words = ' '.join(df[df['predicted_sentiment'] == 'Positive']['clean_text'])
+negative_words = ' '.join(df[df['predicted_sentiment'] == 'Negative']['clean_text'])
+
+plt.figure(figsize=(12,6))
+plt.subplot(1,2,1)
+plt.title("Positive Words")
+plt.imshow(WordCloud(width=400, height=300, background_color='white').generate(positive_words))
+plt.axis('off')
+
+plt.subplot(1,2,2)
+plt.title("Negative Words")
+plt.imshow(WordCloud(width=400, height=300, background_color='black', colormap='Reds').generate(negative_words))
+plt.axis('off')
+
+plt.show()
+
+# --------------------
+# 6. Save Output
+# --------------------
+df.to_csv("sentiment_results.csv", index=False)
+print("Analysis complete! Results saved to sentiment_results.csv")
